@@ -11,7 +11,7 @@ const Login = () => {
   const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || (
     (window.Capacitor?.isNative || (window.Capacitor && window.Capacitor.Plugins)) 
       ? 'http://10.0.2.2:5000/api' 
-      : 'http://localhost:5000/api'
+      : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
   ));
 
   const handleSaveSettings = () => {
