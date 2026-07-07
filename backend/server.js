@@ -30,6 +30,10 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/transactions', require('./routes/transactionRoutes'));
 
 // simple health check route
+app.get('/', (req, res) => {
+  res.status(200).json({ success: true, message: 'Expense Tracker API is running...' });
+});
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'API is running' });
 });
