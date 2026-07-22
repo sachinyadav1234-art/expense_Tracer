@@ -64,18 +64,13 @@ const transactionSchema = new mongoose.Schema(
 
 const { convertCurrency } = require('../utils/currencyConverter');
 
-transactionSchema.pre('save', async function (next) {
-  try {
-    if (this.isModified('amount') || this.isModified('currency') || !this.amountInBaseCurrency) {
-      const User = mongoose.model('User');
-      const user = await User.findById(this.user);
-      const baseCurrency = user ? (user.baseCurrency || 'INR') : 'INR';
-      
-      this.amountInBaseCurrency = await convertCurrency(this.amount, this.currency, baseCurrency);
-    }
-    next();
-  } catch (err) {
-    next(err);
+transactionSchema.pre('save', async function () {
+  if (this.isModified('amount') || this.isModified('currency') || !this.amountInBaseCurrency) {
+    const User = mongoose.model('User');
+    const user = await User.findById(this.user);
+    const baseCurrency = user ? (user.baseCurrency || 'INR') : 'INR';
+    
+    this.amountInBaseCurrency = await convertCurrency(this.amount, this.currency, baseCurrency);
   }
 });
 

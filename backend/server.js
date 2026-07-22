@@ -9,15 +9,39 @@ connectDB();
 
 const app = express();
 
+// request logger middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // middleware
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://[::1]:5173',
+  'http://[::1]:5174',
+  'http://[::1]:5175',
+  process.env.CLIENT_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5174',
-    process.env.CLIENT_URL
-  ].filter(Boolean),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    const isLocal = /https?:\/\/localhost:\d+/.test(origin) || 
+                    /https?:\/\/127\.0\.0\.1:\d+/.test(origin) || 
+                    /https?:\/\/\[::1\]:\d+/.test(origin);
+                    
+    if (isLocal || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -28,6 +52,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 
 
 app.use('/api/transactions', require('./routes/transactionRoutes'));
+app.use('/api/groups', require('./routes/groupRoutes'));
 
 // simple health check route
 app.get('/', (req, res) => {

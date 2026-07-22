@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api';
+import transactionService from '../services/transactionService';
 
 const TransactionForm = ({ existingTransaction, onSuccess, onCancel }) => {
   const [type, setType] = useState('expense');
@@ -56,16 +56,16 @@ const TransactionForm = ({ existingTransaction, onSuccess, onCancel }) => {
 
     try {
       if (existingTransaction) {
-        // Edit mode: PUT request
-        const res = await api.put(`/transactions/${existingTransaction._id}`, transactionData);
-        if (res.data.success) {
-          onSuccess(res.data.transaction, 'update');
+        // Edit mode
+        const data = await transactionService.updateTransaction(existingTransaction._id, transactionData);
+        if (data.success) {
+          onSuccess(data.transaction, 'update');
         }
       } else {
-        // Add mode: POST request
-        const res = await api.post('/transactions', transactionData);
-        if (res.data.success) {
-          onSuccess(res.data.transaction, 'add');
+        // Add mode
+        const data = await transactionService.createTransaction(transactionData);
+        if (data.success) {
+          onSuccess(data.transaction, 'add');
           // Reset form fields
           setAmount('');
           setNote('');

@@ -1,4 +1,3 @@
-const { validationResult } = require('express-validator');
 const Transaction = require('../models/Transaction');
 const { parseSMS } = require('../utils/smsParser');
 
@@ -7,11 +6,6 @@ const { parseSMS } = require('../utils/smsParser');
 // @access  Private
 const addTransaction = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: errors.array()[0].msg });
-    }
-
     const { type, amount, category, note, date } = req.body;
 
     const transaction = await Transaction.create({

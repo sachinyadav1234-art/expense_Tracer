@@ -781,3 +781,229 @@ body {
     gap: 16px;
   }
 }
+
+/* DASHBOARD MODULAR STYLES */
+.mobile-status-container {
+  margin-bottom: 1.5rem;
+}
+.mobile-status-header {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+}
+.mobile-status-icon {
+  margin-right: 6px;
+}
+.mobile-status-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.mobile-status-card {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card-bg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.mobile-status-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.mobile-status-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+.mobile-status-btn:hover {
+  background: var(--accent-hover);
+}
+
+.pending-section {
+  background: var(--accent-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--accent-border);
+  margin-bottom: 2rem;
+}
+.pending-header {
+  color: var(--accent);
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+.pending-header-icon {
+  margin-right: 8px;
+}
+.pending-description {
+  color: var(--text);
+  font-size: 0.85rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.pending-card {
+  background: var(--card-bg);
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.pending-card-header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.pending-badge {
+  display: inline-block;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+.pending-title {
+  font-weight: bold;
+  color: var(--text-h);
+}
+.pending-date {
+  font-size: 0.85rem;
+  color: var(--text);
+  margin-left: 10px;
+}
+.pending-amount {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.pending-amount.income {
+  color: var(--income);
+}
+.pending-amount.expense {
+  color: var(--expense);
+}
+.pending-note {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.pending-sms {
+  font-size: 0.8rem;
+  color: var(--text);
+  margin-top: 4px;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  background: var(--bg);
+  padding: 6px;
+  border-radius: 4px;
+  font-style: italic;
+}
+.pending-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+.btn-confirm {
+  background: var(--income);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+.btn-confirm:hover {
+  background: var(--income-hover);
+}
+.btn-edit {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-edit:hover {
+  background: var(--accent-hover);
+}
+.btn-discard {
+  background: var(--expense);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-discard:hover {
+  background: var(--expense-hover);
+}
+.btn-cancel {
+  background: #6b7280;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-cancel:hover {
+  background: #4b5563;
+}
+
+.edit-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.edit-form-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.edit-form-group {
+  flex: 1;
+  min-width: 150px;
+}
+.edit-form-group.wide {
+  flex: 2;
+  min-width: 200px;
+}
+.edit-form-label {
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: bold;
+}
+.edit-form-input {
+  width: 100%;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  margin-top: 4px;
+}
+
+.chart-container-wrapper {
+  width: 100%;
+  height: 260px;
+}

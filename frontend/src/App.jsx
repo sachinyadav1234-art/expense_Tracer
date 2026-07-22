@@ -4,6 +4,7 @@ import { AuthContext } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
+import Groups from './pages/Groups';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -57,6 +58,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Transactions />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <PrivateRoute>
+                <Groups />
               </PrivateRoute>
             }
           />

@@ -1,7 +1,6 @@
 import { createContext, useState, useEffect } from 'react';
-import api from '../services/api';
+import authService from '../services/authService';
 
-// AuthContext banate hain jisse logged in user ka data poore app me access ho sake
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -10,7 +9,7 @@ export const AuthProvider = ({ children }) => {
 
   // Sync token to Capacitor native preference for background receiver
   const syncCredentialsToNative = (token) => {
-    const isNative = window.Capacitor?.isNative || (window.Capacitor && window.Capacitor.Plugins);
+    const isNative = !!window.Capacitor?.isNative;
     if (isNative) {
       try {
         const apiUrl = localStorage.getItem('server_url') || 'http://10.0.2.2:5000/api';
@@ -33,9 +32,9 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           // backend se user details fetch karenge
-          const res = await api.get('/auth/me');
-          if (res.data.success) {
-            setUser(res.data.user);
+          const data = await authService.getMe();
+          if (data.success) {
+            setUser(data.user);
             syncCredentialsToNative(token);
           } else {
             localStorage.removeItem('token');
@@ -54,17 +53,21 @@ export const AuthProvider = ({ children }) => {
   // Register function
   const register = async (name, email, password) => {
     try {
-      const res = await api.post('/auth/register', { name, email, password });
-      if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data.user);
-        syncCredentialsToNative(res.data.token);
+      const data = await authService.register(name, email, password);
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        setUser(data.user);
+        syncCredentialsToNative(data.token);
         return { success: true };
       }
     } catch (error) {
+      console.error('Registration API error:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Registration failed'
+        message: error.response?.data?.message || 
+                 (error.message === 'Network Error' || !error.response 
+                   ? 'Server unreachable (Network Error)' 
+                   : 'Registration failed')
       };
     }
   };
@@ -72,17 +75,21 @@ export const AuthProvider = ({ children }) => {
   // Login function
   const login = async (email, password) => {
     try {
-      const res = await api.post('/auth/login', { email, password });
-      if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data.user);
-        syncCredentialsToNative(res.data.token);
+      const data = await authService.login(email, password);
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        setUser(data.user);
+        syncCredentialsToNative(data.token);
         return { success: true };
       }
     } catch (error) {
+      console.error('Login API error:', error);
       return {
         success: false,
-        message: error.response?.data?.message || 'Invalid email or password'
+        message: error.response?.data?.message || 
+                 (error.message === 'Network Error' || !error.response 
+                   ? 'Server unreachable (Network Error)' 
+                   : 'Invalid email or password')
       };
     }
   };
@@ -90,7 +97,7 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await authService.logout();
     } catch (error) {
       console.error('Logout error', error);
     }

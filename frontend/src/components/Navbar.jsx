@@ -22,6 +22,7 @@ const Navbar = () => {
       <div className="nav-links">
         <Link to="/" className="nav-link">Dashboard</Link>
         <Link to="/transactions" className="nav-link">Transactions</Link>
+        <Link to="/groups" className="nav-link">Split Bills</Link>
         <span className="user-greeting">Hi, {user.name} 👋</span>
         <button onClick={handleLogout} className="logout-btn">
           Logout

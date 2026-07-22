@@ -10,6 +10,7 @@ const {
   autoDetectTransaction,
 } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
+const validate = require('../middleware/validate');
 
 const router = express.Router();
 
@@ -28,10 +29,10 @@ router.get('/summary', getSummary);
 router.post('/auto-detect', autoDetectTransaction);
 
 // baaki saare CRUD operations
-router.post('/', transactionValidation, addTransaction);
+router.post('/', transactionValidation, validate, addTransaction);
 router.get('/', getTransactions);
 router.get('/:id', getTransactionById);
-router.put('/:id', transactionValidation, updateTransaction);
+router.put('/:id', transactionValidation, validate, updateTransaction);
 router.delete('/:id', deleteTransaction);
 
 module.exports = router;

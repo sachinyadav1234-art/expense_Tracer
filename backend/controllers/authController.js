@@ -1,4 +1,3 @@
-const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 
@@ -7,11 +6,6 @@ const generateToken = require('../utils/generateToken');
 // @access  Public
 const registerUser = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: errors.array()[0].msg });
-    }
-
     const { name, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
@@ -38,11 +32,6 @@ const registerUser = async (req, res, next) => {
 // @access  Public
 const loginUser = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, message: errors.array()[0].msg });
-    }
-
     const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select('+password');

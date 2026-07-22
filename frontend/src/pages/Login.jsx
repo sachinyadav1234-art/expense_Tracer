@@ -8,11 +8,31 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [serverUrl, setServerUrl] = useState(localStorage.getItem('server_url') || (
-    (window.Capacitor?.isNative || (window.Capacitor && window.Capacitor.Plugins)) 
-      ? 'http://10.0.2.2:5000/api' 
-      : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api')
-  ));
+  const getInitialServerUrl = () => {
+    let savedURL = localStorage.getItem('server_url');
+    const isLocal = window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1' || 
+                    window.location.hostname === '[::1]' || 
+                    window.location.hostname === '::1' ||
+                    window.location.hostname.endsWith('.local') ||
+                    /^192\.168\./.test(window.location.hostname) ||
+                    /^10\./.test(window.location.hostname) ||
+                    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname);
+    if (isLocal && savedURL && savedURL.includes('onrender.com')) {
+      localStorage.removeItem('server_url');
+      savedURL = null;
+    }
+    const isNative = !!window.Capacitor?.isNative;
+    return savedURL || (
+      isNative 
+        ? 'http://10.0.2.2:5000/api' 
+        : isLocal
+          ? `http://${window.location.hostname || 'localhost'}:5000/api`
+          : (import.meta.env.VITE_API_URL || 'https://expense-tracer-8i63.onrender.com/api')
+    );
+  };
+
+  const [serverUrl, setServerUrl] = useState(getInitialServerUrl());
 
   const handleSaveSettings = () => {
     localStorage.setItem('server_url', serverUrl);
@@ -44,7 +64,35 @@ const Login = () => {
         <h2>Welcome Back!</h2>
         <p className="auth-subtitle">Login to manage your expenses</p>
 
-        {error && <div className="error-alert">{error}</div>}
+        {error && (
+          <div className="error-alert" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <span>{error}</span>
+            {(error.includes('Server unreachable') || error.includes('failed') || localStorage.getItem('server_url')) && (
+              <button 
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('server_url');
+                  window.location.reload();
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.5)',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  alignSelf: 'flex-start',
+                  marginTop: '4px',
+                  transition: 'background 0.2s'
+                }}
+              >
+                Reset Server Settings & Reload
+              </button>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

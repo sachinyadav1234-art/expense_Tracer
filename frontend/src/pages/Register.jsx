@@ -40,7 +40,35 @@ const Register = () => {
         <h2>Create Account</h2>
         <p className="auth-subtitle">Start tracking your money today</p>
 
-        {error && <div className="error-alert">{error}</div>}
+        {error && (
+          <div className="error-alert" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <span>{error}</span>
+            {(error.includes('Server unreachable') || error.includes('failed') || localStorage.getItem('server_url')) && (
+              <button 
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('server_url');
+                  window.location.reload();
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: '#fff',
+                  border: '1px solid rgba(255, 255, 255, 0.5)',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  alignSelf: 'flex-start',
+                  marginTop: '4px',
+                  transition: 'background 0.2s'
+                }}
+              >
+                Reset Server Settings & Reload
+              </button>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">

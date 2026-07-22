@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import api from '../services/api';
+import useTransactions from '../hooks/useTransactions';
 import TransactionForm from '../components/TransactionForm';
 
 const getCurrencySymbol = (code) => {
@@ -16,77 +15,21 @@ const getCurrencySymbol = (code) => {
 };
 
 const Transactions = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editingTxn, setEditingTxn] = useState(null);
-
-  // Filters state
-  const [typeFilter, setTypeFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Fetch all transactions
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      // Query parameters for filters
-      const params = {};
-      if (typeFilter) params.type = typeFilter;
-      if (categoryFilter) params.category = categoryFilter;
-
-      const res = await api.get('/transactions', { params });
-      if (res.data.success) {
-        setTransactions(res.data.transactions);
-      }
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTransactions();
-  }, [typeFilter, categoryFilter]);
-
-  // Handle transaction delete
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this transaction?')) {
-      try {
-        const res = await api.delete(`/transactions/${id}`);
-        if (res.data.success) {
-          // Remove deleted transaction from list
-          setTransactions(transactions.filter((t) => t._id !== id));
-        }
-      } catch (error) {
-        console.error('Error deleting transaction:', error);
-      }
-    }
-  };
-
-  // Form success callback (updates or adds transaction)
-  const handleFormSuccess = (updatedTxn, mode) => {
-    if (mode === 'update') {
-      setTransactions(
-        transactions.map((t) => (t._id === updatedTxn._id ? updatedTxn : t))
-      );
-      setEditingTxn(null);
-    }
-  };
-
-  // Unique categories list for filters
-  const categoriesList = [
-    'Salary', 'Freelance', 'Investment', 'Gift', 
-    'Food', 'Rent', 'Utilities', 'Entertainment', 
-    'Travel', 'Shopping', 'Medical', 'Others'
-  ];
-
-  // Client-side search filtering
-  const filteredTransactions = transactions.filter((txn) => {
-    const noteMatch = txn.note?.toLowerCase().includes(searchQuery.toLowerCase());
-    const categoryMatch = txn.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return noteMatch || categoryMatch;
-  });
+  const {
+    loading,
+    editingTxn,
+    typeFilter,
+    categoryFilter,
+    searchQuery,
+    categoriesList,
+    filteredTransactions,
+    setTypeFilter,
+    setCategoryFilter,
+    setSearchQuery,
+    setEditingTxn,
+    handleDelete,
+    handleFormSuccess
+  } = useTransactions();
 
   return (
     <div className="transactions-container">
