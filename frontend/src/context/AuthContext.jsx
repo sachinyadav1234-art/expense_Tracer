@@ -60,15 +60,29 @@ export const AuthProvider = ({ children }) => {
         syncCredentialsToNative(data.token);
         return { success: true };
       }
+      return { success: false, message: data.message || 'Registration failed' };
     } catch (error) {
       console.error('Registration API error:', error);
-      return {
-        success: false,
-        message: error.response?.data?.message || 
-                 (error.message === 'Network Error' || !error.response 
-                   ? 'Server unreachable (Network Error)' 
-                   : 'Registration failed')
-      };
+      let errMsg = 'Registration failed';
+      if (error.response) {
+        if (error.response.data && typeof error.response.data === 'object' && error.response.data.message) {
+          errMsg = error.response.data.message;
+        } else if (error.response.data && typeof error.response.data === 'string') {
+          if (error.response.data.includes('<title>')) {
+            const titleMatch = error.response.data.match(/<title>([\s\S]*?)<\/title>/i);
+            errMsg = titleMatch ? `Server Error: ${titleMatch[1]}` : `Server returned HTML error (${error.response.status})`;
+          } else {
+            errMsg = error.response.data.substring(0, 100);
+          }
+        } else {
+          errMsg = `Server Error (${error.response.status})`;
+        }
+      } else if (error.message === 'Network Error') {
+        errMsg = 'Server unreachable (Network Error)';
+      } else if (error.message) {
+        errMsg = error.message;
+      }
+      return { success: false, message: errMsg };
     }
   };
 
@@ -82,15 +96,29 @@ export const AuthProvider = ({ children }) => {
         syncCredentialsToNative(data.token);
         return { success: true };
       }
+      return { success: false, message: data.message || 'Invalid email or password' };
     } catch (error) {
       console.error('Login API error:', error);
-      return {
-        success: false,
-        message: error.response?.data?.message || 
-                 (error.message === 'Network Error' || !error.response 
-                   ? 'Server unreachable (Network Error)' 
-                   : 'Invalid email or password')
-      };
+      let errMsg = 'Invalid email or password';
+      if (error.response) {
+        if (error.response.data && typeof error.response.data === 'object' && error.response.data.message) {
+          errMsg = error.response.data.message;
+        } else if (error.response.data && typeof error.response.data === 'string') {
+          if (error.response.data.includes('<title>')) {
+            const titleMatch = error.response.data.match(/<title>([\s\S]*?)<\/title>/i);
+            errMsg = titleMatch ? `Server Error: ${titleMatch[1]}` : `Server returned HTML error (${error.response.status})`;
+          } else {
+            errMsg = error.response.data.substring(0, 100);
+          }
+        } else {
+          errMsg = `Server Error (${error.response.status})`;
+        }
+      } else if (error.message === 'Network Error') {
+        errMsg = 'Server unreachable (Network Error)';
+      } else if (error.message) {
+        errMsg = error.message;
+      }
+      return { success: false, message: errMsg };
     }
   };
 
