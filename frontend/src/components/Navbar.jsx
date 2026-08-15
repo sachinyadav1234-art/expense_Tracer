@@ -11,7 +11,7 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  // Agar user login nahi hai, to navbar display nahi hoga
+  // If the user is not logged in, the navbar will not be displayed
   if (!user) return null;
 
   return (

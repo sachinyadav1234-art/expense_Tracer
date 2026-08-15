@@ -25,13 +25,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Jab app load hoga tab check karenge ki token stored hai ya nahi
+  // When the app loads, check if a token is stored
   useEffect(() => {
     const checkLoggedIn = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          // backend se user details fetch karenge
+          // Fetch user details from backend
           const data = await authService.getMe();
           if (data.success) {
             setUser(data.user);

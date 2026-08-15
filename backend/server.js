@@ -63,7 +63,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'API is running' });
 });
 
-// error handling (routes ke baad hona chahiye)
+// Error handling (must be after routes)
 app.use(notFound);
 app.use(errorHandler);
 

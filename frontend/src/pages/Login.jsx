@@ -47,11 +47,11 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    // email aur password submit karke login request bhejenge
+    // Submit email and password to send login request
     const res = await login(email, password);
 
     if (res.success) {
-      navigate('/'); // dashboard par redirect karenge
+      navigate('/'); // Redirect to dashboard
     } else {
       setError(res.message);
     }

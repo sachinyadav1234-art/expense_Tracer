@@ -23,11 +23,11 @@ const Register = () => {
 
     setLoading(true);
 
-    // name, email aur password submit karke registration request bhejenge
+    // Submit name, email, and password to send registration request
     const res = await register(name, email, password);
 
     if (res.success) {
-      navigate('/'); // direct dashboard redirect karenge
+      navigate('/'); // Redirect directly to dashboard
     } else {
       setError(res.message);
     }

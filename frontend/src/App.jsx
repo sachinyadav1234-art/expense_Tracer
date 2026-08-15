@@ -8,7 +8,7 @@ import Groups from './pages/Groups';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
-// Protected Route component jo verify karega ki user login hai ya nahi
+// Protected Route component that verifies whether the user is logged in
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useContext(AuthContext);
 
@@ -16,7 +16,7 @@ const PrivateRoute = ({ children }) => {
     return <div className="loading-spinner">Loading authentication...</div>;
   }
 
-  // Agar user logged in nahi hai to login page par redirect kar do
+  // If user is not logged in, redirect to login page
   if (!user) {
     return <Navigate to="/login" replace />;
   }

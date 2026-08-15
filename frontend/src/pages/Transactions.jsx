@@ -35,7 +35,7 @@ const Transactions = () => {
     <div className="transactions-container">
       <header className="transactions-header">
         <h2>All Transactions</h2>
-        <p>Aapke saare transactions ki list aur manage karne ki tools 💸</p>
+        <p>A list of all your transactions and tools to manage them 💸</p>
       </header>
 
       {/* Edit Form Overlay (Agar edit button dabaaya ho) */}

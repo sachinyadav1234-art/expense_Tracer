@@ -14,7 +14,7 @@ const validate = require('../middleware/validate');
 
 const router = express.Router();
 
-// saare transaction routes protected hain - login zaroori hai
+// All transaction routes are protected - login is required
 router.use(protect);
 
 const transactionValidation = [
@@ -23,12 +23,12 @@ const transactionValidation = [
   body('category').trim().notEmpty().withMessage('Category is required'),
 ];
 
-// note: /summary route ko /:id route se PEHLE likhna zaroori hai
-// warna express '/summary' ko ':id' samajh lega aur page crash ho jayega!
+// Note: /summary route must be written BEFORE the /:id route
+// Otherwise express will interpret '/summary' as ':id' and it will crash!
 router.get('/summary', getSummary);
 router.post('/auto-detect', autoDetectTransaction);
 
-// baaki saare CRUD operations
+// All other CRUD operations
 router.post('/', transactionValidation, validate, addTransaction);
 router.get('/', getTransactions);
 router.get('/:id', getTransactionById);

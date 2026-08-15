@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// check karta hai ki request ke saath valid token aaya hai ya nahi
+// Check if a valid token is provided with the request
 const protect = async (req, res, next) => {
   let token;
 
@@ -11,7 +11,7 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // token se user find karke request me attach kar do (password ke bina)
+      // Find user from token and attach to request (excluding password)
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user) {

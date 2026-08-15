@@ -14,7 +14,7 @@ const TransactionForm = ({ existingTransaction, onSuccess, onCancel }) => {
   const incomeCategories = ['Salary', 'Freelance', 'Investment', 'Gift', 'Others'];
   const expenseCategories = ['Food', 'Rent', 'Utilities', 'Entertainment', 'Travel', 'Shopping', 'Medical', 'Others'];
 
-  // Agar edit mode hai, to existing values set karenge
+  // If in edit mode, set the existing values
   useEffect(() => {
     if (existingTransaction) {
       setType(existingTransaction.type);
@@ -28,7 +28,7 @@ const TransactionForm = ({ existingTransaction, onSuccess, onCancel }) => {
     }
   }, [existingTransaction]);
 
-  // Type change hone pe category sync karenge
+  // Sync category when transaction type changes
   useEffect(() => {
     if (!existingTransaction) {
       setCategory(type === 'income' ? 'Salary' : 'Food');

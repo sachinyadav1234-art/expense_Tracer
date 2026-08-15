@@ -73,7 +73,7 @@ const Dashboard = () => {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <h2>Dashboard Overview</h2>
-        <p>Aapka expense aur income summary yahan hai 📊</p>
+        <p>Your expense and income summary is here 📊</p>
       </header>
 
       {/* Mobile background tracker setup instructions */}
