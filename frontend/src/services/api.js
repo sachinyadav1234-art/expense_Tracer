@@ -37,15 +37,14 @@ const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
+  timeout: 10000, // 10-second timeout to prevent requests from hanging indefinitely
 });
-
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  
   
   let savedURL = localStorage.getItem('server_url');
   const isLocal = checkIsLocal();
@@ -63,7 +62,6 @@ api.interceptors.request.use((config) => {
         : (import.meta.env.VITE_API_URL || 'https://expense-tracer-8i63.onrender.com/api')
   );
   config.baseURL = currentBase;
-  console.log('[API] Request to:', config.url, 'with baseURL:', config.baseURL);
   
   return config;
 });
