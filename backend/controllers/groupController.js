@@ -1,23 +1,86 @@
 const Group = require('../models/Group');
 const GroupExpense = require('../models/GroupExpense');
+const User = require('../models/User');
+
+const escapeRegex = (str) => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
+ * Helper to compute net balances and settlements for a group.
+ */
+const computeGroupData = async (group) => {
+  const expenses = await GroupExpense.find({ group: group._id }).sort({ date: -1 });
+
+  // Calculate net balances
+  const netBalances = {};
+  group.members.forEach((member) => {
+    netBalances[member.name] = 0;
+  });
+
+  expenses.forEach((expense) => {
+    const payer = expense.paidBy;
+    const totalAmount = expense.amount;
+    const splitList = expense.splitAmong;
+
+    // Creditor: Payer is credited the sum of others' shares
+    if (netBalances[payer] === undefined) {
+      netBalances[payer] = 0;
+    }
+    netBalances[payer] += totalAmount;
+
+    // Debtors: Split members are debited their respective shares
+    splitList.forEach((split) => {
+      if (netBalances[split.name] === undefined) {
+        netBalances[split.name] = 0;
+      }
+      netBalances[split.name] -= split.share;
+    });
+  });
+
+  // Simplify debt settlements using Greedy Cash Flow Minimization algorithm
+  const settlements = calculateSettlements(netBalances);
+
+  return {
+    group,
+    expenses,
+    balances: netBalances,
+    settlements,
+  };
+};
 
 /**
  * Create a new bill sharing group.
- * The creator is automatically added as a member.
+ * The creator is automatically added as a member and other members are auto-linked to registered users if found.
  */
 const createGroup = async (req, res, next) => {
   try {
-        const { name, description, members } = req.body;
+    const { name, description, members } = req.body;
 
     const groupMembers = [{ name: req.user.name, userId: req.user._id }];
 
     if (Array.isArray(members)) {
-      members.forEach((m) => {
+      for (const m of members) {
         const memberName = typeof m === 'string' ? m.trim() : m.name?.trim();
-        if (memberName && memberName !== req.user.name) {
-          groupMembers.push({ name: memberName });
+        if (memberName && memberName.toLowerCase() !== req.user.name.toLowerCase()) {
+          // Check if this member is an existing registered user by name or email
+          const existingUser = await User.findOne({
+            $or: [
+              { name: { $regex: new RegExp(`^${escapeRegex(memberName)}$`, 'i') } },
+              { email: memberName.toLowerCase() }
+            ]
+          });
+
+          if (existingUser) {
+            groupMembers.push({
+              name: existingUser.name,
+              userId: existingUser._id
+            });
+          } else {
+            groupMembers.push({ name: memberName });
+          }
         }
-      });
+      }
     }
 
     const group = await Group.create({
@@ -27,6 +90,11 @@ const createGroup = async (req, res, next) => {
       members: groupMembers,
     });
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('groups-changed');
+    }
+
     res.status(201).json({ success: true, group });
   } catch (error) {
     next(error);
@@ -34,16 +102,37 @@ const createGroup = async (req, res, next) => {
 };
 
 /**
- * Fetch all groups where the authenticated user is a member.
+ * Fetch all groups where the authenticated user is creator or member.
+ * Automatically links member userId if matched by name.
  */
 const getGroups = async (req, res, next) => {
   try {
+    const userNameRegex = new RegExp(`^${escapeRegex(req.user.name)}$`, 'i');
+    const userEmailRegex = new RegExp(`^${escapeRegex(req.user.email)}$`, 'i');
+
     const groups = await Group.find({
       $or: [
         { createdBy: req.user._id },
-        { 'members.userId': req.user._id }
+        { 'members.userId': req.user._id },
+        { 'members.name': userNameRegex },
+        { 'members.name': userEmailRegex }
       ]
     }).sort({ createdAt: -1 });
+
+    // Auto-link userId in groups where member name matched but userId wasn't set yet
+    for (const group of groups) {
+      let needsSave = false;
+      group.members.forEach((m) => {
+        if (!m.userId && (userNameRegex.test(m.name) || userEmailRegex.test(m.name))) {
+          m.userId = req.user._id;
+          m.name = req.user.name; // normalize to actual user name
+          needsSave = true;
+        }
+      });
+      if (needsSave) {
+        await group.save();
+      }
+    }
 
     res.status(200).json({ success: true, count: groups.length, groups });
   } catch (error) {
@@ -62,51 +151,39 @@ const getGroupById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
 
-    // Check authorization: must be a member
+    const userNameRegex = new RegExp(`^${escapeRegex(req.user.name)}$`, 'i');
+    const userEmailRegex = new RegExp(`^${escapeRegex(req.user.email)}$`, 'i');
+
+    // Check authorization: must be creator or member
     const isMember = group.createdBy.toString() === req.user._id.toString() ||
-                     group.members.some(m => m.userId && m.userId.toString() === req.user._id.toString());
+                     group.members.some(m => 
+                       (m.userId && m.userId.toString() === req.user._id.toString()) ||
+                       userNameRegex.test(m.name) ||
+                       userEmailRegex.test(m.name)
+                     );
 
     if (!isMember) {
       return res.status(403).json({ success: false, message: 'Not authorized to view this group' });
     }
 
-    const expenses = await GroupExpense.find({ group: group._id }).sort({ date: -1 });
-
-    // Calculate net balances
-    const netBalances = {};
-    group.members.forEach((member) => {
-      netBalances[member.name] = 0;
-    });
-
-    expenses.forEach((expense) => {
-      const payer = expense.paidBy;
-      const totalAmount = expense.amount;
-      const splitList = expense.splitAmong;
-
-      // Creditor: Payer is credited the sum of others' shares
-      if (netBalances[payer] === undefined) {
-        netBalances[payer] = 0;
+    // Auto-link userId if missing
+    let needsSave = false;
+    group.members.forEach((m) => {
+      if (!m.userId && (userNameRegex.test(m.name) || userEmailRegex.test(m.name))) {
+        m.userId = req.user._id;
+        m.name = req.user.name;
+        needsSave = true;
       }
-      netBalances[payer] += totalAmount;
-
-      // Debtors: Split members are debited their respective shares
-      splitList.forEach((split) => {
-        if (netBalances[split.name] === undefined) {
-          netBalances[split.name] = 0;
-        }
-        netBalances[split.name] -= split.share;
-      });
     });
+    if (needsSave) {
+      await group.save();
+    }
 
-    // Simplify debt settlements using Greedy Cash Flow Minimization algorithm
-    const settlements = calculateSettlements(netBalances);
+    const data = await computeGroupData(group);
 
     res.status(200).json({
       success: true,
-      group,
-      expenses,
-      balances: netBalances,
-      settlements
+      ...data
     });
   } catch (error) {
     next(error);
@@ -115,6 +192,7 @@ const getGroupById = async (req, res, next) => {
 
 /**
  * Add a new expense within a group.
+ * Automatically recalculates balances + settlements and broadcasts to all connected group members.
  */
 const addGroupExpense = async (req, res, next) => {
   try {
@@ -125,18 +203,29 @@ const addGroupExpense = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Group not found' });
     }
 
+    const userNameRegex = new RegExp(`^${escapeRegex(req.user.name)}$`, 'i');
+    const isMember = group.createdBy.toString() === req.user._id.toString() ||
+                     group.members.some(m => 
+                       (m.userId && m.userId.toString() === req.user._id.toString()) ||
+                       userNameRegex.test(m.name)
+                     );
+
+    if (!isMember) {
+      return res.status(403).json({ success: false, message: 'Not authorized to add expense to this group' });
+    }
+
     let splits = [];
     if (Array.isArray(splitAmong) && splitAmong.length > 0) {
       splits = splitAmong.map((m) => ({
-        name: m.name || m,
-        share: Number(m.share) || (amount / splitAmong.length)
+        name: typeof m === 'object' ? (m.name || req.user.name) : m,
+        share: typeof m === 'object' && m.share ? Number(m.share) : (Number(amount) / splitAmong.length)
       }));
     } else {
       // Split equally among all group members by default
       const memberCount = group.members.length;
       splits = group.members.map((m) => ({
         name: m.name,
-        share: amount / memberCount
+        share: Number(amount) / memberCount
       }));
     }
 
@@ -151,14 +240,30 @@ const addGroupExpense = async (req, res, next) => {
       createdBy: req.user._id
     });
 
-    res.status(201).json({ success: true, expense });
+    const updatedData = await computeGroupData(group);
+
+    // Broadcast real-time update to all members connected in this group room and across the app
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`group:${group._id}`).emit('group-updated', {
+        groupId: group._id.toString(),
+        ...updatedData
+      });
+      io.emit('groups-changed');
+    }
+
+    res.status(201).json({
+      success: true,
+      expense,
+      ...updatedData
+    });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Delete a group expense.
+ * Delete a group expense and broadcast update to all members.
  */
 const deleteGroupExpense = async (req, res, next) => {
   try {
@@ -168,10 +273,14 @@ const deleteGroupExpense = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Expense not found' });
     }
 
-    // Only creator of the expense or group creator can delete it
     const group = await Group.findById(expense.group);
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found' });
+    }
+
+    // Only creator of the expense or group creator can delete it
     const isAuthorized = expense.createdBy.toString() === req.user._id.toString() ||
-                         (group && group.createdBy.toString() === req.user._id.toString());
+                         group.createdBy.toString() === req.user._id.toString();
 
     if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this expense' });
@@ -179,7 +288,23 @@ const deleteGroupExpense = async (req, res, next) => {
 
     await expense.deleteOne();
 
-    res.status(200).json({ success: true, message: 'Expense deleted' });
+    const updatedData = await computeGroupData(group);
+
+    // Broadcast real-time update to all connected group members
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`group:${group._id}`).emit('group-updated', {
+        groupId: group._id.toString(),
+        ...updatedData
+      });
+      io.emit('groups-changed');
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Expense deleted',
+      ...updatedData
+    });
   } catch (error) {
     next(error);
   }

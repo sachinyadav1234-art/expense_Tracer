@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import groupService from '../services/groupService';
 import useGroupDetails from '../hooks/useGroupDetails';
+import { subscribeToGroupsListChanges } from '../services/socketService';
 
 const getCurrencySymbol = (code) => {
   return code === 'USD' ? '$' : code === 'EUR' ? '€' : code === 'GBP' ? '£' : '₹';
@@ -20,6 +21,8 @@ const Groups = () => {
     selectedGroup,
     groupDetails,
     detailsLoading,
+    isSubmitting,
+    lastSyncedAt,
     expDesc,
     expAmount,
     expPaidBy,
@@ -38,11 +41,20 @@ const Groups = () => {
 
   useEffect(() => {
     fetchGroups();
+
+    // Listen for real-time changes to the groups list across all devices/laptops
+    const unsubscribe = subscribeToGroupsListChanges(() => {
+      fetchGroups(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
-  const fetchGroups = async () => {
+  const fetchGroups = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const data = await groupService.getGroups();
       if (data.success) {
         setGroups(data.groups);
@@ -50,13 +62,13 @@ const Groups = () => {
     } catch (err) {
       console.error('Failed to fetch groups:', err);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
   const handleBack = () => {
     handleBackToGroups();
-    fetchGroups();
+    fetchGroups(false);
   };
 
   // Group creation dynamic member inputs handler
@@ -95,7 +107,7 @@ const Groups = () => {
         setNewGroupName('');
         setNewGroupDesc('');
         setNewGroupMembers(['', '']);
-        fetchGroups();
+        fetchGroups(false);
       }
     } catch (err) {
       console.error('Group creation failed:', err);
@@ -166,7 +178,7 @@ const Groups = () => {
 
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                     <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Add Members</span>
+                      <span>Add Members (Names or Emails)</span>
                       <button 
                         type="button" 
                         onClick={addMemberField}
@@ -181,7 +193,7 @@ const Groups = () => {
                         <div key={index} style={{ display: 'flex', gap: '0.5rem' }}>
                           <input 
                             type="text" 
-                            placeholder={`Member ${index + 1}`}
+                            placeholder={`Member ${index + 1} (e.g. Sahil or sahil@gmail.com)`}
                             value={member}
                             onChange={(e) => handleMemberNameChange(index, e.target.value)}
                             required
@@ -271,13 +283,17 @@ const Groups = () => {
       {/* 2. Group Detail Dashboard view */}
       {selectedGroup && groupDetails && (
         <>
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <button 
               onClick={handleBack} 
               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '1rem' }}
             >
               ← Back to Groups
             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--income)', background: 'rgba(16, 185, 129, 0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+              <span>Live Auto-Sync Active</span>
+            </div>
           </div>
 
           <header className="transactions-header" style={{ marginBottom: '2rem' }}>
@@ -297,7 +313,7 @@ const Groups = () => {
                 <div className="recent-transactions-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
                   <h3>👥 Member Balances</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-                    {Object.keys(groupDetails.balances).map((name) => {
+                    {Object.keys(groupDetails.balances || {}).map((name) => {
                       const bal = groupDetails.balances[name];
                       return (
                         <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -320,7 +336,7 @@ const Groups = () => {
                 <div className="recent-transactions-card" style={{ padding: '1.25rem' }}>
                   <h3>🤝 Simplified Settlement Plan</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-                    {groupDetails.settlements.length === 0 ? (
+                    {!groupDetails.settlements || groupDetails.settlements.length === 0 ? (
                       <p style={{ color: 'var(--income)', fontWeight: 'bold', textAlign: 'center', padding: '1rem 0' }}>
                         🎉 Everyone is completely settled up!
                       </p>
@@ -366,6 +382,7 @@ const Groups = () => {
                         <label htmlFor="expAmount">Amount (₹)</label>
                         <input 
                           type="number" 
+                          step="0.01"
                           id="expAmount"
                           placeholder="0.00"
                           value={expAmount}
@@ -432,16 +449,24 @@ const Groups = () => {
                       type="submit" 
                       className="auth-btn"
                       style={{ marginTop: '1.25rem' }}
+                      disabled={isSubmitting}
                     >
-                      Add Group Expense
+                      {isSubmitting ? 'Saving & Syncing...' : 'Add Group Expense'}
                     </button>
                   </form>
                 </div>
 
                 {/* Expenses List Card */}
                 <div className="recent-transactions-card" style={{ padding: '1.25rem' }}>
-                  <h3>📋 Group Expenses Log</h3>
-                  {groupDetails.expenses.length === 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3>📋 Group Expenses Log ({groupDetails.expenses?.length || 0})</h3>
+                    {lastSyncedAt && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text)' }}>
+                        Synced: {lastSyncedAt.toLocaleTimeString()}
+                      </span>
+                    )}
+                  </div>
+                  {!groupDetails.expenses || groupDetails.expenses.length === 0 ? (
                     <p style={{ color: 'var(--text)', textAlign: 'center', padding: '2rem 0' }}>No expenses logged yet. Add one above!</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>

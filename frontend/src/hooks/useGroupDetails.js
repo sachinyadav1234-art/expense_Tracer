@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import groupService from '../services/groupService';
+import { subscribeToGroupUpdates } from '../services/socketService';
 
 export const useGroupDetails = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupDetails, setGroupDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   // Expense creation form state
   const [expDesc, setExpDesc] = useState('');
@@ -13,36 +16,84 @@ export const useGroupDetails = () => {
   const [expCategory, setExpCategory] = useState('Others');
   const [expSplitAmong, setExpSplitAmong] = useState([]);
 
-  const fetchGroupDetails = async (groupId) => {
+  const expPaidByRef = useRef(expPaidBy);
+  const expSplitAmongRef = useRef(expSplitAmong);
+
+  useEffect(() => {
+    expPaidByRef.current = expPaidBy;
+  }, [expPaidBy]);
+
+  useEffect(() => {
+    expSplitAmongRef.current = expSplitAmong;
+  }, [expSplitAmong]);
+
+  const fetchGroupDetails = useCallback(async (groupId, showLoading = true) => {
+    if (!groupId) return;
     try {
-      setDetailsLoading(true);
+      if (showLoading) setDetailsLoading(true);
       const data = await groupService.getGroupById(groupId);
       if (data.success) {
         setGroupDetails(data);
-        
+        setLastSyncedAt(new Date());
+
         // Default payer to first member if not already set
-        if (data.group.members.length > 0 && !expPaidBy) {
+        if (data.group && data.group.members && data.group.members.length > 0 && !expPaidByRef.current) {
           setExpPaidBy(data.group.members[0].name);
         }
-        
+
         // Default split selection to all members if currently empty
-        if (expSplitAmong.length === 0) {
-          setExpSplitAmong(data.group.members.map(m => m.name));
+        if (expSplitAmongRef.current.length === 0 && data.group && data.group.members) {
+          setExpSplitAmong(data.group.members.map((m) => m.name));
         }
       }
     } catch (err) {
       console.error('Failed to fetch group details:', err);
     } finally {
-      setDetailsLoading(false);
+      if (showLoading) setDetailsLoading(false);
     }
-  };
+  }, []);
+
+  // Real-time synchronization subscription & polling fallback
+  useEffect(() => {
+    if (!selectedGroup?._id) return;
+
+    // 1. Subscribe to real-time WebSocket updates
+    const unsubscribe = subscribeToGroupUpdates(selectedGroup._id, (updatedData) => {
+      console.log('[Live Sync] Group updated in real-time:', updatedData);
+      setGroupDetails((prev) => ({
+        ...prev,
+        group: updatedData.group || prev?.group,
+        expenses: updatedData.expenses || prev?.expenses,
+        balances: updatedData.balances || prev?.balances,
+        settlements: updatedData.settlements || prev?.settlements,
+      }));
+      setLastSyncedAt(new Date());
+    });
+
+    // 2. Periodic background sync fallback (every 4 seconds) to ensure 100% sync across laptops
+    const pollInterval = setInterval(() => {
+      fetchGroupDetails(selectedGroup._id, false);
+    }, 4000);
+
+    // 3. Sync on window refocus
+    const handleFocus = () => {
+      fetchGroupDetails(selectedGroup._id, false);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [selectedGroup?._id, fetchGroupDetails]);
 
   const handleSelectGroup = (group) => {
     setSelectedGroup(group);
     // Clear split state so it re-initializes for the new group
     setExpSplitAmong([]);
     setExpPaidBy('');
-    fetchGroupDetails(group._id);
+    fetchGroupDetails(group._id, true);
   };
 
   const handleBackToGroups = () => {
@@ -52,7 +103,7 @@ export const useGroupDetails = () => {
 
   const handleSplitCheckboxChange = (memberName) => {
     if (expSplitAmong.includes(memberName)) {
-      setExpSplitAmong(expSplitAmong.filter(m => m !== memberName));
+      setExpSplitAmong(expSplitAmong.filter((m) => m !== memberName));
     } else {
       setExpSplitAmong([...expSplitAmong, memberName]);
     }
@@ -66,29 +117,42 @@ export const useGroupDetails = () => {
     }
 
     try {
+      setIsSubmitting(true);
       const amountNum = parseFloat(expAmount);
       const splitShare = amountNum / expSplitAmong.length;
-      const splitList = expSplitAmong.map(name => ({
+      const splitList = expSplitAmong.map((name) => ({
         name,
-        share: splitShare
+        share: splitShare,
       }));
 
       const data = await groupService.addGroupExpense(selectedGroup._id, {
-        description: expDesc,
+        description: expDesc.trim(),
         amount: amountNum,
         paidBy: expPaidBy,
         splitAmong: splitList,
-        category: expCategory
+        category: expCategory,
       });
 
       if (data.success) {
         setExpDesc('');
         setExpAmount('');
-        // Refresh details to update balances and settlements
-        fetchGroupDetails(selectedGroup._id);
+        if (data.group && data.expenses) {
+          setGroupDetails({
+            group: data.group,
+            expenses: data.expenses,
+            balances: data.balances,
+            settlements: data.settlements,
+          });
+          setLastSyncedAt(new Date());
+        } else {
+          fetchGroupDetails(selectedGroup._id, false);
+        }
       }
     } catch (err) {
       console.error('Failed to add group expense:', err);
+      alert(err.response?.data?.message || 'Failed to add expense. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -97,7 +161,17 @@ export const useGroupDetails = () => {
       try {
         const data = await groupService.deleteGroupExpense(selectedGroup._id, expenseId);
         if (data.success) {
-          fetchGroupDetails(selectedGroup._id);
+          if (data.group && data.expenses) {
+            setGroupDetails({
+              group: data.group,
+              expenses: data.expenses,
+              balances: data.balances,
+              settlements: data.settlements,
+            });
+            setLastSyncedAt(new Date());
+          } else {
+            fetchGroupDetails(selectedGroup._id, false);
+          }
         }
       } catch (err) {
         console.error('Failed to delete expense:', err);
@@ -109,6 +183,8 @@ export const useGroupDetails = () => {
     selectedGroup,
     groupDetails,
     detailsLoading,
+    isSubmitting,
+    lastSyncedAt,
     expDesc,
     expAmount,
     expPaidBy,
@@ -124,7 +200,7 @@ export const useGroupDetails = () => {
     handleBackToGroups,
     handleSplitCheckboxChange,
     handleAddExpenseSubmit,
-    handleDeleteExpense
+    handleDeleteExpense,
   };
 };
 
